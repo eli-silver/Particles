@@ -11,13 +11,15 @@ const DEBUG = true;
 const MAX_VELOCITY = 10000;
 const MIN_SIZE_DEAD_ZONE = true; // set force to zero if distance between p1 & p2 is < r1 + r2
 const COLLISIONS =  false;
-const G = 0.2;
+const G = 0.3;
 
 // Visualization configuration
 const PARTICLE_TRAILS = true;
 const SHOW_CENTER_OF_MASS = true;
-const PARTICLE_COLOR = 'rgba(255,255,255,0.4)'
-const TRANSLATE_STEP = 15; // dist to translate per press of arrow keys
+const PARTICLE_COLOR = 'rgba(255,255,255,0.4)';
+const WIRE_COLOR = 'hsla(120,0%,50%,0.1';
+const TRANSLATE_STEP = 25; // dist to translate per press of arrow keys
+let WIREFRAME = false;
 
 // Canvas setup
 const canvas = document.getElementById('canvas1');
@@ -79,7 +81,7 @@ class Particle{
         ctx.fillStyle = this.fill;
         ctx.beginPath();
         ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
+        if(!WIREFRAME) ctx.fill();
         ctx.stroke();
     }
 }
@@ -100,13 +102,12 @@ class Brain{
             curr_particle.grow(0.3);
             curr_particle.pos.set(mouse.pos.x, mouse.pos.y);
         }
+        this.handleParticles();
+        this.calculateCenterOfMass();
+        if(SHOW_CENTER_OF_MASS) this.drawCenterOfMass();
         for(let particle of this.particles){
-            this.handleParticles();
             particle.update();
-            this.calculateCenterOfMass();
-            if(SHOW_CENTER_OF_MASS) this.drawCenterOfMass();
             particle.draw();
-            if(this.center_com) this.resetCenterOfMass();
         }
     }
 
@@ -126,6 +127,8 @@ class Brain{
                 // A = f1/m + f2/m + ... + fn/m
                 p1.acceleration = p1.acceleration.add(f12.multiply(1/p1.mass));
                 p2.acceleration = p2.acceleration.add(f21.multiply(1/p2.mass));
+
+                if(WIREFRAME)this.drawWireFrame(p1,p2,f12.magnitude());
             }
         }
     }
@@ -138,7 +141,7 @@ class Brain{
      */
     calculateForce(particle1, particle2){
         const v12 = particle2.pos.subtract(particle1.pos); // vector from particle1 to particle 2
-        if(v12.magnitude() <= particle1.radius + particle2.radius){
+        if(v12.magnitude() <= particle1.radius + particle2.radius && MIN_SIZE_DEAD_ZONE){
             return new Vector(0,0);
         }
         const force = G * particle1.mass * particle2.mass / v12.magnitude()**2;
@@ -185,7 +188,17 @@ class Brain{
         }
     }
 
-    newParticle(){ this.particles.push(new Particle(mouse.pos)); }
+    drawWireFrame(particle1, particle2, force){
+        ctx.strokeStyle = WIRE_COLOR;
+        ctx.moveTo(particle1.pos.x, particle1.pos.y);
+        ctx.lineTo(particle2.pos.x, particle2.pos.y);
+        ctx.stroke();
+    }
+
+    newParticle(){ 
+        this.particles.push(new Particle(mouse.pos)); 
+        debug(this.particles.length);
+    }
 }
 
 
@@ -200,6 +213,9 @@ function handleKeyDown(event){
     switch(event.code){
         case 'Space':
             brain.resetCenterOfMass();
+            break;
+        case 'KeyW':
+            WIREFRAME = !WIREFRAME;
             break;
         case 'ArrowUp':
             brain.translate_view(new Vector(0,TRANSLATE_STEP));
